@@ -161,3 +161,48 @@ TLS handshake), last-word→decision ≈ 300 ms including the 200 ms debounce, w
   render results; the demo uses Wikipedia, example.com, Hacker News and DuckDuckGo.
 - `select_option` matches the option label in code by substring; `switch_tab` cycles.
 - Confidence gates are calibrated on `jev-1.13.0`; re-check `T` if you move the model alias.
+
+## Запуск в Windows PowerShell
+
+Перейдите в папку проекта:
+
+```powershell
+cd D:\My_dev_project\JEV_voice_browser
+```
+
+Откройте файл `.env` и замените placeholder на настоящий TypeSafe/JEV API-ключ:
+
+```env
+TYPESAFE_API_KEY=your_typesafe_api_key_here
+```
+
+Не публикуйте и не добавляйте ключ в Git.
+
+Запустите сервер с переменными из `.env`:
+
+```powershell
+node --env-file=.env src/server.js
+```
+
+После появления сообщения `voice-browser ready` откройте в обычном Chrome:
+
+```text
+http://localhost:8787
+```
+
+Нажмите **Start mic** и разрешите доступ к микрофону. Обычный Chrome используется для распознавания речи, а Playwright откроет отдельное окно Chromium — голосовые команды управляют именно этим окном.
+
+### Ошибка 401 AuthenticationError
+
+Ошибка означает, что API-ключ отсутствует или недействителен. Если правильный ключ уже записан в `.env`, проверьте, не задано ли старое значение в текущей PowerShell-сессии:
+
+```powershell
+Get-Item Env:TYPESAFE_API_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:TYPESAFE_API_KEY -ErrorAction SilentlyContinue
+```
+
+После этого снова запустите:
+
+```powershell
+node --env-file=.env src/server.js
+```
