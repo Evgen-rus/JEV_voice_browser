@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluatePolicy, topChoices } from "../../src/policy.js";
-import { T, SILENCE_COMPLETE_MS, PAYLOAD_SILENCE_MS } from "../../src/constants.js";
+import { T, SILENCE_COMPLETE_MS, PAYLOAD_SILENCE_MS, INTENT_CRITERIA, QUESTIONS } from "../../src/constants.js";
 
 /** Build a mocked Jev answer set. */
 function answers(over = {}) {
@@ -177,4 +177,22 @@ test("free-text intents wait for a final result or silence, even when `complete`
   // closed-set intents (navigation / click / scroll) do NOT have this gate
   const b = answers({ intent: ch("navigate_url", 0.99), complete: { noul: 0.95 }, site: ch("wikipedia", 0.9) });
   assert.equal(evaluatePolicy({ answers: b, candidates, snapshot, silentMs: 0 }).decision, "act");
+});
+
+test("Russian criteria preserve intent IDs and contrasts", () => {
+  assert.ok(INTENT_CRITERIA.navigate_url.examples.includes("открой Википедию"));
+  assert.ok(INTENT_CRITERIA.go_back.examples.includes("вернись назад"));
+  assert.ok(INTENT_CRITERIA.scroll_up.examples.includes("вернись наверх страницы"));
+  assert.ok(QUESTIONS.target.instructions.focus.includes("Sign in"));
+  assert.ok(QUESTIONS.is_command.criteria.false.examples.some((x) => x.includes("после работы")));
+});
+
+test("Russian closed-set and safety answers preserve existing policy gates", () => {
+  const back = answers({ intent: ch("go_back", 0.95), complete: { noul: 0.95 } });
+  assert.equal(evaluatePolicy({ answers: back, candidates, snapshot }).decision, "act");
+  const destructive = answers({ intent: ch("click_element", 0.95), target: ch("e04", 0.95), destructive: { noul: 0.9 } });
+  const pending = evaluatePolicy({ answers: destructive, candidates, snapshot });
+  assert.equal(pending.decision, "confirm");
+  assert.equal(evaluatePolicy({ answers: answers({ intent: ch("confirm", 0.95) }), candidates, snapshot, pending: pending.action }).decision, "act");
+  assert.equal(evaluatePolicy({ answers: answers({ intent: ch("cancel", 0.95) }), candidates, snapshot, pending: pending.action }).decision, "cancel");
 });

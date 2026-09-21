@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="utf-8" />
 <title>voice-browser · Jev control room</title>
@@ -81,6 +81,12 @@
   <span class="pill">cost <b id="cost">$0.000000</b></span>
   <span class="pill" title="average: last spoken word → decision / → action finished (incl. page load)">word→decide <b id="c2d">–</b> ms · →done <b id="c2a">–</b> ms</span>
   <div class="spacer"></div>
+  <label class="pill" for="language">
+    <select id="language" aria-label="Язык распознавания">
+      <option value="ru-RU" selected>Русский</option>
+      <option value="en-US">English</option>
+    </select>
+  </label>
   <span class="pill" id="ws">connecting…</span>
 </header>
 
@@ -290,11 +296,11 @@
 
   // ------------------------------------------------------------ speech
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let rec = null, micOn = false, utteranceBase = 0;
+  let rec = null, micOn = false, utteranceBase = 0, speechLang = "ru-RU";
   function startMic() {
     if (!SR) { alert("Web Speech API not available. Use Chrome or Edge, or type commands below."); return; }
     rec = new SR();
-    rec.continuous = true; rec.interimResults = true; rec.lang = "en-US"; rec.maxAlternatives = 1;
+    rec.continuous = true; rec.interimResults = true; rec.lang = speechLang; rec.maxAlternatives = 1;
     rec.onresult = (ev) => {
       // Results before ev.resultIndex are finished. Each result index is a distinct utterance.
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
@@ -313,6 +319,15 @@
     $("micdot").classList.remove("on"); $("micstate").textContent = "off"; $("micbtn").textContent = "Start mic"; $("micbtn").classList.add("primary");
   }
   $("micbtn").onclick = () => (micOn ? stopMic() : startMic());
+  $("language").onchange = (ev) => {
+    speechLang = ev.target.value;
+    if (rec) {
+      rec.lang = speechLang;
+      if (micOn) {
+        try { rec.stop(); } catch {}
+      }
+    }
+  };
 
   connect();
 })();

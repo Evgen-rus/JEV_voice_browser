@@ -58,6 +58,13 @@ into accounts there that you wouldn't want a mis-heard "click place order" to to
 clicks require a spoken "confirm", but treat that as a convenience, not a guarantee.
 
 No microphone? Type a command into the text box on the control page and press Enter.
+## Russian voice input
+
+Russian (`ru-RU`) is the default voice-recognition language; English (`en-US`) remains available from the control-page selector without restarting the server.
+
+- [RUSSIAN_USAGE.md](RUSSIAN_USAGE.md) — Windows setup, Russian commands, language switching, tests, and troubleshooting.
+- [DEMO_RU.md](DEMO_RU.md) — reproducible 3–5 minute Russian demo scenario.
+
 
 ## What you can say
 

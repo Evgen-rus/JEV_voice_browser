@@ -6,7 +6,7 @@
 
 const TLDS = "com|org|net|io|ai|dev|co|edu|gov|de|uk|us|app|xyz|info|me|tv|ch|at|fr|nl|es|it";
 
-const FILLER_RE = /\b(please|thanks|thank you|now|okay|ok|um|uh|and then)\b/gi;
+const FILLER_RE = /\b(please|thanks|thank you|now|okay|ok|um|uh|and then)\b|(?<!\S)(пожалуйста|спасибо|сейчас|ладно|ну|и потом)(?!\S)/giu;
 
 // Verbs that introduce payload text. Order matters: longer/more specific first.
 const TEXT_VERBS = [
@@ -20,15 +20,21 @@ const TEXT_VERBS = [
   /\bwrite\s+/i,
   /\bput\s+/i,
   /\bfill\s+(?:in\s+)?/i,
+  /(?<!\S)(?:найди|поищи|ищи)\s+(?:(?:на|в)\s+(?:гугле|википедии|ютубе|google|wikipedia)\s+)?/iu,
+  /(?<!\S)(?:введи|впиши|напиши|набери|напечата(?:й|йте))\s+/iu,
 ];
 
 // Trailing destination phrases to strip from a payload: "... into the search box".
 const TRAILING_DEST_RE =
   /\s+(?:in|into|on|inside|to)\s+(?:the\s+)?(?:[\w-]+\s+){0,4}?(?:box|field|input|bar|form|textarea|search|wikipedia|youtube|google|duckduckgo|github|amazon|reddit|twitter|x|web)\b.*$/i;
+const RU_TRAILING_DEST_RE =
+  /\s+(?:в|на)\s+(?:поле|строку|форму|окно|поиск|поиска|комментарий|имя|email|почту|адрес)(?:\s+[\p{L}\p{N}_-]+){0,3}\s*.*$/iu;
 
 // Leading site phrases: "wikipedia for cats" -> "cats", "on wikipedia cats" (rare)
 const LEADING_SITE_RE =
   /^(?:on\s+|in\s+)?(?:google|duckduckgo|wikipedia|youtube|github|amazon|reddit|twitter|x|hacker news|the web)\s+(?:for\s+)?/i;
+const RU_LEADING_SITE_RE =
+  /^(?:(?:на|в)\s+)?(?:гугле|википедии|ютубе|youtube|google|wikipedia)\s+(?:поиск\s+|найди\s+|для\s+)?/iu;
 
 export function cleanTranscript(text) {
   return String(text || "")
@@ -66,8 +72,8 @@ export function extractTextCandidates(transcript) {
     .sort((a, b) => a.index - b.index || b[0].length - a[0].length);
   for (const m of verbMatches) {
     let tail = t.slice(m.index + m[0].length);
-    tail = tail.replace(LEADING_SITE_RE, "");
-    const stripped = tail.replace(TRAILING_DEST_RE, "");
+    tail = tail.replace(LEADING_SITE_RE, "").replace(RU_LEADING_SITE_RE, "");
+    const stripped = tail.replace(TRAILING_DEST_RE, "").replace(RU_TRAILING_DEST_RE, "");
     pushUnique(out, stripped);
     if (stripped !== tail) pushUnique(out, tail);
   }
@@ -75,6 +81,9 @@ export function extractTextCandidates(transcript) {
   // 3. the tail after the first "for"
   const forIdx = t.toLowerCase().indexOf(" for ");
   if (forIdx >= 0) pushUnique(out, t.slice(forIdx + 5).replace(TRAILING_DEST_RE, ""));
+  for (const m of t.matchAll(/(?<!\S)(?:на|в)\s+(?:гугле|википедии|ютубе)\s+(.+)/giu)) {
+    pushUnique(out, m[1].replace(RU_TRAILING_DEST_RE, ""));
+  }
 
   // 4. tail after the first word (covers "type hello")
   const firstSpace = t.indexOf(" ");
@@ -90,9 +99,9 @@ export function extractTextCandidates(transcript) {
 export function normalizeSpokenUrl(text) {
   return String(text || "")
     .toLowerCase()
-    .replace(/\s+dot\s+/g, ".")
+    .replace(/\s+(?:dot|точка)\s+/g, ".")
     .replace(/\s*\.\s*/g, ".")
-    .replace(/\s+slash\s+/g, "/")
+    .replace(/\s+(?:slash|слэш|слеш)\s+/g, "/")
     .replace(/\bwww\s+/g, "www.")
     .replace(/\bh\s*t\s*t\s*p\s*s?\s*:\s*\/\s*\//g, (m) => (m.includes("s") ? "https://" : "http://"));
 }
@@ -122,6 +131,11 @@ const NUMBER_WORDS = {
   three: 3, third: 3, "3": 3, "3rd": 3,
   four: 4, fourth: 4, "4": 4, "4th": 4,
   five: 5, fifth: 5, "5": 5, "5th": 5,
+  один: 1, первый: 1, первая: 1, первое: 1,
+  два: 2, две: 2, второй: 2, вторая: 2, второе: 2,
+  три: 3, третий: 3, третья: 3, третье: 3,
+  четыре: 4, четвёртый: 4, четвертый: 4, четвёртая: 4, четвертая: 4,
+  пять: 5, пятый: 5, пятая: 5,
 };
 // Speech-recognizer homophones, only trusted when they are the whole utterance ("to" alone).
 const NUMBER_HOMOPHONES = { won: 1, to: 2, too: 2, for: 4 };
@@ -133,6 +147,7 @@ const NUMBER_HOMOPHONES = { won: 1, to: 2, too: 2, for: 4 };
  */
 const PICK_STOPWORDS = new Set([
   "the", "number", "option", "pick", "choose", "select", "click", "take", "that", "please", "link", "item", "result", "go", "with", "on", "yes", "this", "um", "uh",
+  "номер", "вариант", "ссылка", "кнопка", "элемент", "результат", "выбери", "выбрать", "нажми", "кликни", "пожалуйста", "да", "это", "ну",
 ]);
 
 export function parseCandidatePick(transcript, max = 5) {

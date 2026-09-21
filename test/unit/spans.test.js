@@ -15,6 +15,14 @@ test("text candidates: 'search for X' and 'look up X'", () => {
   assert.equal(extractTextCandidates("search wikipedia for cats")[0], "cats");
   assert.equal(extractTextCandidates("google cheap flights to lisbon")[0], "cheap flights to lisbon");
 });
+test("text candidates: Russian search and type payloads", () => {
+  assert.equal(extractTextCandidates("найди погоду в Новосибирске")[0], "погоду в Новосибирске");
+  assert.equal(extractTextCandidates("поищи Alan Turing")[0], "Alan Turing");
+  assert.equal(extractTextCandidates("найди на Википедии квантовую механику")[0], "квантовую механику");
+  assert.equal(extractTextCandidates("введи Иван Петров в поле имени")[0], "Иван Петров");
+  assert.equal(extractTextCandidates("напиши привет мир в поле комментария")[0], "привет мир");
+  assert.equal(extractTextCandidates("набери test@example.com в поле email")[0], "test@example.com");
+});
 
 test("text candidates: quoted spans win", () => {
   assert.equal(extractTextCandidates('type "good morning" in the comment box')[0], "good morning");
@@ -40,6 +48,11 @@ test("spoken URLs: 'example dot com' -> example.com", () => {
   assert.deepEqual(extractUrlCandidates("visit https://docs.typesafe.ai/models"), ["https://docs.typesafe.ai/models"]);
   assert.deepEqual(extractUrlCandidates("scroll down a bit"), []);
 });
+test("spoken Russian URLs: 'точка' and 'слэш'", () => {
+  assert.equal(normalizeSpokenUrl("открой example точка com слэш docs"), "открой example.com/docs");
+  assert.deepEqual(extractUrlCandidates("открой example точка com"), ["example.com"]);
+  assert.deepEqual(extractUrlCandidates("открой example точка com слэш docs"), ["example.com/docs"]);
+});
 
 test("toHttpUrl adds https", () => {
   assert.equal(toHttpUrl("example.com"), "https://example.com");
@@ -55,4 +68,8 @@ test("candidate pick parsing", () => {
   assert.equal(parseCandidatePick("four", 3), null, "out of range");
   assert.equal(parseCandidatePick("go to wikipedia"), null);
   assert.equal(parseCandidatePick(""), null);
+});
+test("Russian candidate pick parsing", () => {
+  const cases = [["один", 1], ["первый", 1], ["два", 2], ["второй", 2], ["три", 3], ["третий", 3], ["четыре", 4], ["четвёртый", 4], ["четвертый", 4], ["пять", 5], ["пятый", 5], ["номер два", 2], ["вторая ссылка", 2]];
+  for (const [phrase, expected] of cases) assert.equal(parseCandidatePick(phrase), expected);
 });

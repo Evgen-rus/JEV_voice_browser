@@ -240,20 +240,20 @@ export class Controller extends EventEmitter {
       case "confirm":
         this._consume(utt, textAtRequest);
         this.pending = policy.action;
-        await this.browser.overlay("toast", `Say "confirm" to ${describe(policy.action)}`, 6000);
+        await this.browser.overlay("toast", `Say "confirm" / «подтверждаю» to ${describe(policy.action)}`, 6000);
         this.emit("pending", { action: policy.action, summary: policy.summary });
         break;
       case "cancel":
         this._consume(utt, textAtRequest);
         this.pending = null;
-        await this.browser.overlay("toast", "cancelled");
+        await this.browser.overlay("toast", "cancelled / отменено");
         this.emit("pending", null);
         break;
       case "disambiguate": {
         const list = policy.candidates.map((c, i) => ({ n: i + 1, id: c.id, label: c.label, p: c.p }));
         this.candidates = { list, intent: policy.pendingIntent, at: Date.now() };
         await this.browser.overlay("candidates", list, CANDIDATE_TTL_MS);
-        await this.browser.overlay("toast", "Which one? Say the number.", 3000);
+        await this.browser.overlay("toast", "Which one? / Какой именно? Say the number / Скажите номер.", 3000);
         this.emit("candidates", list);
         this._scheduleSilenceRetry(utt);
         break;

@@ -53,7 +53,7 @@ function mockDecide({ latency = 20, complete = (t) => (t.split(" ").length >= 2 
     const ch = (c, conf = 0.95, extra = {}) => ({ type: "choice", choice: c, confidence: conf, probabilities: { [c]: conf, ...extra } });
     let intent = ch("none", 0.9);
     let target = ch("none", 0.9);
-    if (t.startsWith("go back")) intent = ch("go_back");
+    if (t.startsWith("go back") || t.startsWith("вернись назад")) intent = ch("go_back");
     else if (t.startsWith("scroll")) intent = ch("scroll_down");
     else if (t.startsWith("click ambiguous")) {
       intent = ch("click_element");
@@ -192,6 +192,20 @@ test("typed command is treated as a final utterance", async () => {
   await c.start();
   c.handleCommand("go back");
   await sleep(150);
+  assert.equal(executed.length, 1);
+  await c.close();
+});
+
+test("Russian closed-set command acts early and side-talk is ignored", async () => {
+  const { c, executed } = setup();
+  await c.start();
+  c.handleTranscript({ text: "вернись назад", final: false, utteranceId: "ru1" });
+  await sleep(DEBOUNCE_MS + 150);
+  assert.equal(executed.length, 1);
+  assert.equal(executed[0].type, "go_back");
+
+  c.handleTranscript({ text: "Слушай, после работы давай поедим", final: true, utteranceId: "ru2" });
+  await sleep(DEBOUNCE_MS + 100);
   assert.equal(executed.length, 1);
   await c.close();
 });
