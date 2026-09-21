@@ -185,6 +185,10 @@
         case "action": ui = payload.ui; renderStats(); renderSnapshot(); break;
         case "snapshot": ui && (ui.snapshot = payload); renderSnapshot(); break;
         case "log": appendLog(payload); break;
+        case "service_error": {
+          const v = $("verdict"); v.className = "verdict confirm"; v.textContent = payload.message;
+          break;
+        }
         case "candidates": candIds = new Set((payload || []).map((c) => c.id)); renderSnapshot(); break;
         case "pending": $("pending").textContent = payload ? `⚠ pending: ${payload.summary} — say "confirm" or "cancel"` : ""; break;
         case "tabs": $("tabs").textContent = `${payload.length} tab${payload.length === 1 ? "" : "s"}`; break;

@@ -4,7 +4,7 @@
  *
  * API key stays server-side. Reads TYPESAFE_API_KEY, falling back to JEV_API_KEY.
  */
-import { TypeSafeClient, choice, noul, score, APIUserAbortError } from "@typesafe-ai/sdk";
+import { APIConnectionError, APITimeoutError, APIUserAbortError, TypeSafeClient, choice, noul, score } from "@typesafe-ai/sdk";
 import { MODEL, PRICE_PER_M_INPUT_TOKENS_USD, QUESTIONS, MAX_TRANSCRIPT_CHARS } from "./constants.js";
 import { extractTextCandidates, extractUrlCandidates } from "./spans.js";
 
@@ -138,4 +138,20 @@ export async function decide(input, { signal } = {}) {
 
 export function isAbortError(err) {
   return err instanceof APIUserAbortError || err?.name === "AbortError" || err?.name === "APIUserAbortError";
+}
+
+/** Classify final Jev failures after the SDK has exhausted its own retries. */
+export function classifyJevError(err) {
+  const status = err?.status ?? err?.statusCode;
+  const code = err?.code ?? err?.cause?.code;
+  if (
+    [502, 503, 504].includes(status) ||
+    err instanceof APIConnectionError ||
+    err instanceof APITimeoutError ||
+    ["ECONNRESET", "ECONNREFUSED", "EAI_AGAIN", "ENETDOWN", "ENETUNREACH", "ETIMEDOUT"].includes(code)
+  ) {
+    return { kind: "temporary", status, code };
+  }
+  if ([401, 403].includes(status) || /missing api key/i.test(err?.message || "")) return { kind: "auth", status, code };
+  return { kind: "unexpected", status, code };
 }

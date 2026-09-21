@@ -90,7 +90,7 @@ function mockDecide({ latency = 20, complete = (t) => (t.split(" ").length >= 2 
 function setup(opts = {}) {
   const browser = fakeBrowser();
   const executed = [];
-  const decideFn = mockDecide(opts);
+  const decideFn = opts.decideFn || mockDecide(opts);
   const executeFn = async (action) => {
     executed.push(action);
     await sleep(opts.execMs ?? 10);
@@ -99,6 +99,58 @@ function setup(opts = {}) {
   const c = new Controller({ browser, decideFn, executeFn });
   return { c, browser, executed, decideFn };
 }
+
+test("503 is reported without an action and the next command still works", async () => {
+  const successful = mockDecide({ latency: 0 });
+  let first = true;
+  const decideFn = async (...args) => {
+    if (!first) return successful(...args);
+    first = false;
+    throw Object.assign(new Error("no healthy upstream"), { status: 503 });
+  };
+  const { c, executed } = setup({ decideFn });
+  const errors = [];
+  const logs = [];
+  c.on("service_error", (error) => errors.push(error));
+  c.on("log", (entry) => logs.push(entry));
+  await c.start();
+  c.handleCommand("go back");
+  await sleep(50);
+  assert.equal(executed.length, 0);
+  assert.equal(c.inflight.length, 0);
+  assert.equal(errors[0].kind, "temporary");
+  assert.match(errors[0].message, /503 no healthy upstream/);
+  assert.ok(logs.some((entry) => entry.level === "error" && entry.msg === errors[0].message));
+  c.handleCommand("go back");
+  await sleep(50);
+  assert.equal(executed.length, 1);
+  await c.close();
+});
+
+test("timeout is a temporary service error", async () => {
+  const error = Object.assign(new Error("request timed out"), { code: "ETIMEDOUT" });
+  const { c, executed } = setup({ decideFn: async () => { throw error; } });
+  const serviceError = new Promise((resolve) => c.once("service_error", resolve));
+  await c.start();
+  c.handleCommand("go back");
+  assert.equal((await serviceError).kind, "temporary");
+  assert.equal(executed.length, 0);
+  assert.equal(c.inflight.length, 0);
+  await c.close();
+});
+
+test("auth failures are reported separately from temporary failures", async () => {
+  const error = Object.assign(new Error("invalid API key"), { status: 401 });
+  const { c, executed } = setup({ decideFn: async () => { throw error; } });
+  const serviceError = new Promise((resolve) => c.once("service_error", resolve));
+  await c.start();
+  c.handleCommand("go back");
+  const reported = await serviceError;
+  assert.equal(reported.kind, "auth");
+  assert.match(reported.message, /authentication\/configuration error/i);
+  assert.equal(executed.length, 0);
+  await c.close();
+});
 
 test("debounces partials into one request and acts once per utterance", async () => {
   const { c, executed, decideFn } = setup();

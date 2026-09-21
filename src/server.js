@@ -64,6 +64,7 @@ export async function startServer(opts = {}) {
   controller.on("action", (p) => broadcast("action", { ...p, ui: controller.uiState() }));
   controller.on("snapshot", () => broadcast("snapshot", controller.uiState().snapshot));
   controller.on("log", (p) => broadcast("log", p));
+  controller.on("service_error", (p) => broadcast("service_error", p));
   controller.on("candidates", (p) => broadcast("candidates", p));
   controller.on("pending", (p) => broadcast("pending", p));
   controller.on("tabs", (p) => broadcast("tabs", p));

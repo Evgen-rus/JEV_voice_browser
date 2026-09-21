@@ -4,7 +4,7 @@
  */
 import { EventEmitter } from "node:events";
 import { DEBOUNCE_MS, SILENCE_COMPLETE_MS, CANDIDATE_TTL_MS, MAX_INFLIGHT, MODEL, T } from "./constants.js";
-import { decide, isAbortError } from "./jev.js";
+import { classifyJevError, decide, isAbortError } from "./jev.js";
 import { evaluatePolicy, describe } from "./policy.js";
 import { execute } from "./executor.js";
 import { parseCandidatePick, cleanTranscript } from "./spans.js";
@@ -172,16 +172,25 @@ export class Controller extends EventEmitter {
         { signal: ac.signal },
       );
     } catch (err) {
-      this.inflight = this.inflight.filter((r) => r !== req);
       if (isAbortError(err) || ac.signal.aborted) {
         this._log("debug", `cancelled stale request for "${textAtRequest}"`);
         return;
       }
-      this._log("error", `Jev error: ${err.message || err}`);
-      this.emit("error", err);
+      const serviceError = classifyJevError(err);
+      if (serviceError.kind === "unexpected") {
+        this._log("error", `Unexpected Jev error: ${err?.stack || err}`);
+        throw err;
+      }
+      const prefix = serviceError.kind === "temporary" ? "Jev temporarily unavailable" : "Jev authentication/configuration error";
+      const detail = String(err?.message || err);
+      const message = `${prefix}: ${serviceError.status && !detail.startsWith(String(serviceError.status)) ? `${serviceError.status} ` : ""}${detail}`;
+      const payload = { ...serviceError, message };
+      this._log("error", message, payload);
+      this.emit("service_error", payload);
       return;
+    } finally {
+      this.inflight = this.inflight.filter((r) => r !== req);
     }
-    this.inflight = this.inflight.filter((r) => r !== req);
     if (ac.signal.aborted || this.utterance !== utt || utt.actedOn) return;
 
     this.stats.calls += 1;
